@@ -1,17 +1,15 @@
+// backend/index.js
 require("dotenv").config();
-
 const express = require("express");
 const nodemailer = require("nodemailer");
 const cors = require("cors");
 
-
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
-// ===============================
-// ZOHO SMTP CONFIG (WORKS 100%)
-// ===============================
-// Use your Zoho Mail + App Password
+app.use(cors());
+app.use(express.json());
+
 const transporter = nodemailer.createTransport({
     host: "smtp.zoho.in",
     port: 465,
@@ -22,85 +20,57 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Test connection
-transporter.verify((err) => {
-    if (err) console.log("❌ SMTP Error:", err);
-    else console.log("✅ SMTP Connected Successfully");
-});
-
-app.use(cors());
-app.use(express.json());
-
-// =========================================
-// RATE LIMIT — user can submit only 1 time
-// every 3 minutes
-// =========================================
-let lastSubmitTime = 0;
-const LIMIT_TIME = 3 * 60 * 1000; // 3 minutes
-
 app.post("/api/contact", async (req, res) => {
-    const now = Date.now();
-    if (now - lastSubmitTime < LIMIT_TIME) {
-        return res.status(429).json({
-            success: false,
-            message: "Please wait a few minutes before sending again."
-        });
+    const { name, email, phone, projectType, message } = req.body;
+
+    if (!name || !email || !phone || !projectType || !message) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    lastSubmitTime = now;
-
-    const { name, email, message } = req.body;
-
-    if (!name || !email || !message) {
-        return res.status(400).json({ success: false, message: "All fields required" });
-    }
-
-    // =========================
-    // Email to Company
-    // =========================
-    const sendToCompany = {
-        from: "DeveloperStudios <developerstudios@zohomail.in>",
-        replyTo: email,
+    // Email to Admin
+    const adminMail = {
+        from: `"DeveloperStudios Leads" <developerstudios@zohomail.in>`,
         to: "service@developerstudios.in",
-        subject: `New Contact Submission from ${name}`,
+        subject: `🔥 New Lead: ${projectType} - ${name}`,
         html: `
-            <h2>New Inquiry Received</h2>
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Message:</strong></p>
-            <p style="border:1px solid #ddd;padding:10px">${message}</p>
+            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
+                <h2 style="color: #333;">New Project Inquiry Received</h2>
+                <hr/>
+                <p><strong>Client Name:</strong> ${name}</p>
+                <p><strong>Email:</strong> ${email}</p>
+                <p><strong>Phone:</strong> ${phone}</p>
+                <p><strong>Service Requested:</strong> ${projectType}</p>
+                <p><strong>Message:</strong></p>
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 5px;">${message}</div>
+            </div>
         `
     };
 
-    // =========================
-    // Confirmation email to user
-    // =========================
-    const sendToUser = {
-        from: "DeveloperStudios <developerstudios@zohomail.in>",
+    // Auto-reply to User
+    const userMail = {
+        from: `"DeveloperStudios" <developerstudios@zohomail.in>`,
         to: email,
-        subject: "We Received Your Inquiry ✔",
+        subject: "We've received your project brief! ✔",
         html: `
-            <h3>Hello ${name},</h3>
-            <p>Thank you for contacting <strong>DeveloperStudios</strong>.</p>
-            <p>Our team will reach out within <strong>24 hours</strong>.</p>
-            <p><strong>Your Message:</strong></p>
-            <blockquote>${message}</blockquote>
-            <br/>
-            <p>Best regards,<br/>DeveloperStudios Team</p>
+            <div style="font-family: sans-serif; max-width: 600px; line-height: 1.6;">
+                <h3>Hello ${name},</h3>
+                <p>Thank you for reaching out to <strong>DeveloperStudios</strong>.</p>
+                <p>Our team in <strong>Riyadh</strong> has received your inquiry regarding <strong>${projectType}</strong>. One of our experts is reviewing your brief right now.</p>
+                <p>We typically respond within <strong>2 hours</strong> during business hours.</p>
+                <br/>
+                <p style="color: #666; font-size: 14px;">Regards,<br/>The DeveloperStudios Team</p>
+            </div>
         `
     };
 
     try {
-        await transporter.sendMail(sendToCompany);
-        await transporter.sendMail(sendToUser);
-
-        console.log("📨 Email sent successfully from:", email);
-
-        res.json({ success: true, message: "Message sent" });
+        await transporter.sendMail(adminMail);
+        await transporter.sendMail(userMail);
+        res.json({ success: true, message: "Inquiry sent successfully" });
     } catch (err) {
-        console.log("❌ Email Error:", err);
-        res.status(500).json({ success: false, message: "Email sending failed" });
+        console.error("❌ Email Error:", err);
+        res.status(500).json({ success: false, message: "Server error. Try again later." });
     }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Expert Backend running on port ${PORT}`));

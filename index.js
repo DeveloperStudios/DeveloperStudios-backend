@@ -29,7 +29,7 @@ app.post("/api/contact", async (req, res) => {
 
     // Email to Admin
     const adminMail = {
-        from: `"DeveloperStudios Leads" <developerstudios@zohomail.in>`,
+        from: `"DeveloperStudios Leads" <hello@developerstudios.in>`,
         to: "service@developerstudios.in",
         subject: `🔥 New Lead: ${projectType} - ${name}`,
         html: `
@@ -48,7 +48,7 @@ app.post("/api/contact", async (req, res) => {
 
     // Auto-reply to User
     const userMail = {
-        from: `"DeveloperStudios" <developerstudios@zohomail.in>`,
+        from: `"DeveloperStudios" <hello@developerstudios.in>`,
         to: email,
         subject: "We've received your project brief! ✔",
         html: `
